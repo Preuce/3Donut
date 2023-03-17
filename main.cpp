@@ -3,16 +3,17 @@
 #include <limits>
 #include <iostream>
 #include <thread>
-#include <chrono>
-#include <math.h>
 
 //note concernant le repère, x vers la droite, y vers le haut, z loin de l'écran
-
 
 //Rotation angles
 double phi = 0;/*angle on the x axis*/
 double alpha = 0; /*angle on the y axis*/
 double ome = 0; /*angle on the z axis*/
+
+unsigned int id_phi = 0;/*angle on the x axis*/
+unsigned int id_alpha = 0; /*angle on the y axis*/
+unsigned int id_ome = 0; /*angle on the z axis*/
 
 int GRAPH[GRAPH_DIM*GRAPH_DIM] {0};
 int DEPTH[GRAPH_DIM*GRAPH_DIM] {RP+10};
@@ -98,21 +99,22 @@ void print_light(){
  * @brief Computes the coordinates of each point based on the 5 different angles
  * Store the depths and illumination in DEPTH and GRAPH
  */
-void compute_rot(){
+inline void compute_rot(){
     for(unsigned long i = 0; i < donut_mesh.size(); i++){
         Point3D point = donut_mesh[i];
 
         //Applying the rotations
-        point.Rot_x(phi).Rot_y(alpha).Rot_z(ome);
+        point.Rot_x(s_phi[id_phi], c_phi[id_phi]).Rot_y(s_alpha[id_alpha], c_alpha[id_alpha]).Rot_z(s_ome[id_ome], c_ome[id_ome]);
 
         //yeah writing annoys me
         auto const& [x, y, z] = point;
 
         if(z < DEPTH[((RP - (int) y)*ZOOM)*GRAPH_DIM + ((int) x + RP)*ZOOM]){
             //Point in the inner ring
-            Point3D inner_point = inner_ring[i/(donut_mesh.size()/size_psy)];
+            Point3D inner_point = inner_ring[i/size_the];
+
             //Rotation
-            inner_point.Rot_x(phi).Rot_y(alpha).Rot_z(ome);
+            inner_point.Rot_x(s_phi[id_phi], c_phi[id_phi]).Rot_y(s_alpha[id_alpha], c_alpha[id_alpha]).Rot_z(s_ome[id_ome], c_ome[id_ome]);
 
             //Orientation vector of the point in the space
             Point3D orient_vector = point - inner_point;
@@ -122,13 +124,13 @@ void compute_rot(){
             
             //Illumination, scalar product between the illumination vector I and the normal at x, y, z
             //result between -1 et 1, then within MAP size 
-            int illum = std::min((int) (scal(orient_vector, I)*MAP_last*INTENSITY), MAP_last);
+            int illum = std::min((int) (scal(orient_vector, I)*MAP_size*SATURATION), MAP_size);
             //If the scalar product is positive (normal in the orientation of I)
             if(illum >= 0){
                 illum = 1;
             }else{
                 //If the scalar product is negative (normal opposite to I)
-                illum = std::min(-illum, MAP_last);
+                illum = std::min(-illum, MAP_size);
             }
 
             int depth = std::max(-RP, std::min((int) z, RP));
@@ -144,90 +146,45 @@ void compute_rot(){
     }
 }
 
-/**
- * @brief Computes the coordinates of each point based on the 5 different angles
- * Store the depths and illumination in DEPTH and GRAPH
- * Recompute the entire donut at each call
- */
-void compute_rot_ineff(){
+inline void update_id(unsigned int &id, unsigned long const& size){
+    id = (id+1)%size;
+}
 
-    for(double psy = 0.0; psy <= 2*M_PI; psy+=pre_psy){
-        for(double the = 0.0; the <= 2*M_PI; the+=pre_the){      
+inline void update_angles_id(){
+    update_id(id_phi, size_phi);
+    update_id(id_alpha, size_alpha);
+    update_id(id_ome, size_ome);
+}
 
-            //Main point
-            Point3D point_rot {X, Y, Z};
-
-            //Applying the rotations
-            point_rot.Rot_x(phi).Rot_y(alpha).Rot_z(ome);
-
-            //yeah writing annoys me
-            auto const& [x, y, z] = point_rot;
-            
-            //Remark : I prefer doing some weird shenanigans here with the coordinates, rather than "lying" in the display function.
-            //in order to respect the usual norms (x + to the right, y + to the top) the indices in GRAPH and DEPTH are as follows  
-            if(z < DEPTH[((RP - (int) y)*ZOOM)*GRAPH_DIM + ((int) x + RP)*ZOOM]){
-
-                //Point in the inner ring
-                Point3D inner_point {Rx, Ry, Rz};
-                //Rotation
-                inner_point.Rot_x(phi).Rot_y(alpha).Rot_z(ome);
-
-                //Orientation vector of the point in the space
-                Point3D orient_vector = point_rot - inner_point;
-                
-                //Normalization
-                orient_vector.normalize();
-                
-                //Illumination, scalar product between the illumination vector I and the normal at x, y, z
-                //result between -1 et 1, then within MAP size 
-                int illum = std::min((int) (scal(orient_vector, I)*MAP_last*INTENSITY), MAP_last);
-                //If the scalar product is positive (normal in the orientation of I)
-                if(illum >= 0){
-                    illum = 1;
-                }else{
-                    //If the scalar product is negative (normal opposite to I)
-                    illum = std::min(-illum, MAP_last);
-                }
-
-                int depth = std::max(-RP, std::min((int) z, RP));
-
-                for(unsigned long i = 0; i < ZOOM; i++){
-                    int idx = ((int) x + RP)*ZOOM + i;
-                    for(unsigned long j = 0; j < ZOOM; j++){
-                        int idy = (RP - (int) y)*ZOOM - j;
-                        GRAPH[idy*GRAPH_DIM + idx] = illum;
-                        DEPTH[idy*GRAPH_DIM + idx] = depth;
-                }}
-            }
-        }
-    }
+inline void update_angle(double& angle, double const& pre){
+    angle = fmod(angle+pre, 2*M_PI);
 }
 
 /**
  * @brief updates the values of the rotation angles
  * the value is updated so that the increment per second corresponds to the value specified in params.hpp
  */
-void update_angles(){
-    phi+=rot_phi/FPS; //x axis
-    alpha+=rot_alpha/FPS; //y axis
-    ome+=rot_ome/FPS; //z axis
+inline void update_angles(){
+    update_angle(phi, pre_phi); //x axis
+    update_angle(alpha, pre_alpha); //y axis
+    update_angle(ome, pre_ome); //z axis
 }
 
 int main(int argc, char* argv[]){
     I.normalize();
 
+    make_donut_mesh();
+
     const auto GRAPH_begin = std::begin(GRAPH), GRAPH_end = std::end(GRAPH);
 
     const auto DEPTH_begin = std::begin(DEPTH), DEPTH_end = std::end(DEPTH);
-    
-    while(true){
 
+    while(true){
         std::fill(GRAPH_begin, GRAPH_end, 0);
         std::fill(DEPTH_begin, DEPTH_end, std::numeric_limits<int>::max()); //arbitrary value > max(z) 
 
         compute_rot();
-        // compute_rot_ineff();
-
+        
         printf("phi : %d    alpha : %d    ome : %d\n", ((int) (phi*180/M_PI))%360, ((int) (alpha*180/M_PI)%360), ((int) (ome*180/M_PI))%360);
 
         // print_GRAPH();
@@ -235,8 +192,9 @@ int main(int argc, char* argv[]){
         // print_values();
         print_light();
 
-        update_angles();
+        update_angles_id();
+        update_angles(); //unnecessary, for angle display only (why not)
 
-        std::this_thread::sleep_for(std::chrono::microseconds((int) (1000000/FPS)));
+        std::this_thread::sleep_for(FRAME_DURATION);
     }
 }

@@ -2,76 +2,97 @@
 #define CONST_HPP
 #include "params.hpp"
 
+#include <algorithm>
+#include <chrono>
+
 constexpr int RP = (R+r); //max radius, used as offset to place elements in tables
 constexpr int GRAPH_DIM = ((RP * 2 + 1)*ZOOM); //size of tables storing the displays
 
-int MAP_last = MAP.size()-1; //don't pay attention to that
+constexpr std::chrono::microseconds FRAME_DURATION((int) (1000000/std::max(0.01, FPS))); //Pause in between each frame, in microsecond
 
+/*----------Pre-computations----------*/
 
-/*Donut generation :
-the : angle in the external ring
-psy : angle on the y axis
+//Precision, used at angle increment
+constexpr double pre_phi = rot_phi/FPS;
+constexpr double pre_alpha = rot_alpha/FPS;
+constexpr double pre_ome = rot_ome/FPS;
+
+//Computing the amount of value we will need
+constexpr unsigned long size_phi = (unsigned long) (2*M_PI/pre_phi);
+constexpr unsigned long size_alpha = (unsigned long) (2*M_PI/pre_alpha);
+constexpr unsigned long size_ome = (unsigned long) (2*M_PI/pre_ome);
+
+/**
+ * @brief returns an array of length size and applies a function at every index
 */
+template 
+<typename T>
+T pre_compute(int size, double pre, double (*func)(double)){
+    T arr;
+    for(int i = 0; i < size; i++){
+        arr[i] = func(i*pre);
+    }
+
+    return arr;
+}
+
+//Precomputed array of sine and cos
+inline const auto s_phi = pre_compute<std::array<double, size_phi>>(size_phi, pre_phi, &sin);
+inline const auto c_phi = pre_compute<std::array<double, size_phi>>(size_phi, pre_phi, &cos);
+
+inline const auto s_alpha = pre_compute<std::array<double, size_alpha>>(size_alpha, pre_alpha, &sin);
+inline const auto c_alpha = pre_compute<std::array<double, size_alpha>>(size_alpha, pre_alpha, &cos);
+
+inline const auto s_ome = pre_compute<std::array<double, size_ome>>(size_ome, pre_ome, &sin);
+inline const auto c_ome = pre_compute<std::array<double, size_ome>>(size_ome, pre_ome, &cos);
+
+/*----------Donut generation----------*/
+//the : angle in the external ring
+//psy : angle on the y axis
 
 //Precision, used at mesh generation
 constexpr double pre_psy = 0.3/(double) std::max(1, R);
 constexpr double pre_the = 0.3/(double) std::max(1, r);
 
-//coordinates given psy and theta (backward facing donut)
-#define Rx (R*cos(psy))
-#define rx (r*cos(the)*cos(psy))
+constexpr unsigned long size_psy = (unsigned long) (2*M_PI/pre_psy);
+constexpr unsigned long size_the = (unsigned long) (2*M_PI/pre_the);
 
-#define Ry (R*sin(psy))
-#define ry (r*sin(psy)*cos(the))
-
-#define Rz (0)
-#define rz (r*sin(the))
-
-#define X (Rx + rx)
-#define Y (Ry + ry)
-#define Z (Rz + rz)
-
-/*TODO
-Generate the base mesh for the donut at compile time
-Compute cos and sin for phi, alpha and ome at compile time
-*/
-
-const unsigned long size_psy = (unsigned long) (2*M_PI/pre_psy);
-const unsigned long size_the = (unsigned long) (2*M_PI/pre_the);
+//meshes
+inline std::array<Point3D, size_psy*size_the> donut_mesh;
+inline std::array<Point3D, size_psy> inner_ring;
 
 /**
- * @brief Creates the main mesh for the donut
+ * @brief Populate the meshes with points
  * 
- * @return a vector
  */
-std::vector<Point3D> make_donut_mesh(){
+void make_donut_mesh(){
 
-    std::vector<Point3D> mesh;
+    double cos_the[size_the];
+    double sin_the[size_the];
+
+    //pre-computation of every relevent sin and cos of theta
+    for(unsigned long i = 0; i < size_the; i++){
+        const double the = i*pre_the;
+        cos_the[i] = cos(the);
+        sin_the[i] = sin(the);
+    }
+
+    double psy[size_psy];
+    for(unsigned long i = 0; i < size_psy; i++){
+        psy[i] = i*pre_psy;
+    }
 
     //Could use the symmetry to shorten the loops
-    for(double psy = 0.0; psy <= 2*M_PI; psy+=pre_psy){
-        for(double the = 0.0; the <= 2*M_PI; the+=pre_the){
-            //convert the and psy into an index
-            // mesh[psy*size_the + the] = Point3D {X, Y, Z};
-            mesh.push_back({X, Y, Z});
+    for(unsigned long k = 0; k < size_psy; k++){
+        const double cos_psy = cos(psy[k]);
+        const double sin_psy = sin(psy[k]);
+
+        inner_ring[k] = {R*cos_psy, R*sin_psy, 0};
+
+        for(unsigned long i = 0; i < size_the; i++){
+            donut_mesh[k*size_the + i] = {R*cos_psy + r*cos_the[i]*cos_psy, R*sin_psy + r*sin_psy*cos_the[i], r*sin_the[i]};
         }
     }
-    return mesh;
 }
 
-const auto donut_mesh = make_donut_mesh();
-
-std::vector<Point3D> make_inner_ring(){
-    std::vector<Point3D> mesh;
-    
-    //Could use the symmetry to shorten the loop
-    for(double psy = 0.0; psy <= 2*M_PI; psy+=pre_psy){
-        // mesh[psy/pre_psy] = Point3D {R*cos(psy), R*sin(psy), 0};
-        mesh.push_back({R*cos(psy), R*sin(psy), 0});
-    }
-
-    return mesh;
-}
-
-const auto inner_ring = make_inner_ring(); 
 #endif

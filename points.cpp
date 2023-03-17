@@ -7,8 +7,25 @@
  * @return Point3D& 
  */
 Point3D& Point3D::Rot_x(double angle){
-    double new_y = m_y*cos(angle) + m_z*sin(angle);
-    double new_z = -m_y*sin(angle) + m_z*cos(angle);
+    const double new_y = m_y*cos(angle) + m_z*sin(angle);
+    const double new_z = -m_y*sin(angle) + m_z*cos(angle);
+
+    m_y = new_y;
+    m_z = new_z;
+
+    return *this;
+}
+
+/**
+ * @brief Rotates a point on the x-axis based on pre-computed sine and cos values
+ * 
+ * @param s pre-computed sine
+ * @param c pre-computed cosine
+ * @return Point3D& 
+ */
+Point3D& Point3D::Rot_x(double const& s, double const& c){
+    const double new_y = m_y*c + m_z*s;
+    const double new_z = -m_y*s + m_z*c;
 
     m_y = new_y;
     m_z = new_z;
@@ -23,8 +40,25 @@ Point3D& Point3D::Rot_x(double angle){
  * @return Point3D& 
  */
 Point3D& Point3D::Rot_y(double angle){
-    double new_x = m_x*cos(angle) - m_z*sin(angle);
-    double new_z = m_x*sin(angle) + m_z*cos(angle);
+    const double new_x = m_x*cos(angle) - m_z*sin(angle);
+    const double new_z = m_x*sin(angle) + m_z*cos(angle);
+
+    m_x = new_x;
+    m_z = new_z;
+
+    return *this;
+}
+
+/**
+ * @brief Rotates a point on the y-axis based on pre-computed sine and cos values
+ * 
+ * @param s pre-computed sine
+ * @param c pre-computed cosine
+ * @return Point3D& 
+ */
+Point3D& Point3D::Rot_y(double const& s, double const& c){
+    const double new_x = m_x*c - m_z*s;
+    const double new_z = m_x*s + m_z*c;
 
     m_x = new_x;
     m_z = new_z;
@@ -39,8 +73,25 @@ Point3D& Point3D::Rot_y(double angle){
  * @return Point3D& 
  */
 Point3D& Point3D::Rot_z(double angle){
-    double new_x = m_x*cos(angle) - m_y*sin(angle);
-    double new_y = m_x*sin(angle) + m_y*cos(angle);
+    const double new_x = m_x*cos(angle) - m_y*sin(angle);
+    const double new_y = m_x*sin(angle) + m_y*cos(angle);
+
+    m_x = new_x;
+    m_y = new_y;
+
+    return *this;
+}
+
+/**
+ * @brief Rotates a point on the z-axis based on pre-computed sine and cos values
+ * 
+ * @param s pre-computed sine
+ * @param c pre-computed cosine
+ * @return Point3D& 
+ */
+Point3D& Point3D::Rot_z(double const& s, double const& c){
+    const double new_x = m_x*c - m_y*s;
+    const double new_y = m_x*s + m_y*c;
 
     m_x = new_x;
     m_y = new_y;

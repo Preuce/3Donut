@@ -3,7 +3,7 @@
 #include "points.hpp"
 
 #include <string>
-#include <vector>
+#include <array>
 
 //Donut
 constexpr int R = 18; //internal ring radius
@@ -21,8 +21,9 @@ constexpr double rot_ome = 0.2; //z axis
 //Illumination
 //character map based on illumination level
 //note : the first character corresponds to empty space
-const std::vector<std::string> MAP {"  ", "..", "--", "::", ";;", "//", "##", "$$"};
-Point3D I = {0, 0, 1}; //illumination vector
-constexpr double INTENSITY = 1.0; //light intensity
+constexpr int MAP_size = 8;
+inline const std::array<std::string, MAP_size> MAP = {"  ", "..", "--", "::", ";;", "//", "$$", "##"};
+inline Point3D I = {0, 0, 1}; //illumination vector
+constexpr double SATURATION = 1.0; //light saturation
 
 #endif

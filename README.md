@@ -13,7 +13,7 @@ You can compile it using compile.sh, then run the 'Donut' executable.
     * mesh definition and some other stuff that won't move during the execution
 4. main
     * main code
-    * Contains 2 mesh rotation code, 1 that uses the mesh defined in const.hpp, the other one recomputes it each time (Im leaving it there for now, just to benchmark)
+    * Contains the mesh rotation code
     * Contains 4 display functions
         * print_GRAPH : displays the raw donut (no lighting)
         * print_DEPTH : displays the content of DEPTH (z axis values) with color-coding
@@ -22,13 +22,13 @@ You can compile it using compile.sh, then run the 'Donut' executable.
 
 # Parameters
 You can tweak the parameters in params.hpp.
-* R and r corresponds to the inner ring, and the outer ring of the donut respectively
+* R and r correspond to the inner ring, and the outer ring of the donut respectively
 * ZOOM corresponds to the amount of zoom on the donut. Makes it bigger without really increasing the computing time
 * FPS corresponds to amount of frame per second
-* rot_phi, rot_alpha and rot_ome corresponds to the rotation speed on the x, y, and z axis respectively, in rad per second.
+* rot_phi, rot_alpha and rot_ome correspond to the rotation speed on the x, y, and z axis respectively, in rad per second.
 * MAP corresponds to the caracters to be used as lighting gradient
-* I corresponds the illumination vector, determines the direction of the light
-* Intensity corresponds the saturation of the light
+* I corresponds to the illumination vector, determines the direction of the light
+* SATURATION corresponds to the saturation of the light
 
 # Implementation
 The coordinate system we consider is the following :
@@ -42,11 +42,11 @@ The Donut and the depth map are represented as 2D grids, where each point is map
 A point is placed in GRAPH if and only if its z value is smaller than the one currently in DEPTH.  
 
 The main code iterates over the list of point in the mesh, and rotates each points based on the 3 angles phi, alpha and ome(ga).  
+The sine and cosine values for each relevant angle are computed at the beginning of execution.  
 It then computes the scalar product between the illumination vector I and the normal at each points in order to determine the light level.  
 
 # TODO
-* I didn't bother with the occlusion, so the light traverses the donus
-* The light is a bit f*cked, it doesn't behave very naturally, that's due to the fact that I take the scalar product of the illumination vector and the normal at each points, so a point directly under the light but facing slightly away will be a lot darker than it should
-* Intensity just multiplies the computed lighting values, meaning high lighting values are increased much more than small one (which increases the contrast... that's what I should have called it...)  
-
-Yeah Im not very good with lighting it seems.
+* The rotation speed is not fully consistent between different framerates. It might be due to values being improperly rounded  
+* User inputs are a pain, they could allow proper termination of the program, as well as switching from one view to another  
+* We could compute all ```size_phi*size_alpha*size_ome``` rotation matrices (or frames...) at the beginning of execution  
+* The light is a bit f*cked, it doesn't behave very naturally, that's due to the fact that I take the scalar product of the illumination vector and the normal at each points, so a point directly under the light but facing slightly away will be a lot darker than it should. It also doesn't take occlusion into account, the light traverses the mesh
